@@ -35,6 +35,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedCompetition, setSelectedCompetition] = useState("All");
 
   useEffect(() => {
     async function loadMatches() {
@@ -173,57 +174,145 @@ function formatLocalTime(dateString: string) {
   }
 
   function renderMatches() {
-    return (
-      <>
-        <SectionTitle title="MATCHES" />
+  const competitions = [
+    "All",
+    "Premier League",
+    "Champions League",
+    "FA Cup",
+    "EFL Cup",
+  ];
 
-        <Card>
-          <h2>Arsenal Fixtures</h2>
+  const filteredMatches =
+    selectedCompetition === "All"
+      ? matches
+      : matches.filter(
+          (match) => match.league.name === selectedCompetition
+        );
 
-          {loading && <p>Loading matches...</p>}
+  const now = new Date();
 
-          {error && (
-            <p style={{ color: "red" }}>
-              Could not load match data: {error}
-            </p>
-          )}
+  const upcomingMatches = filteredMatches.filter(
+    (match) => new Date(match.fixture.date) >= now
+  );
 
-          {!loading && !error && matches.length === 0 && (
-            <p>No upcoming matches found.</p>
-          )}
+  const completedMatches = filteredMatches.filter(
+    (match) => new Date(match.fixture.date) < now
+  );
 
-          {!loading &&
-            !error &&
-            matches.map((match) => (
-              <div
-                key={match.fixture.id}
-                style={{
-                  padding: "20px 0",
-                  borderBottom: "1px solid #eee",
-                  textAlign: "center",
-                }}
-              >
-                <div style={{ color: "#666", marginBottom: 10 }}>
-                  {match.league.name}
-                </div>
+  const MatchCard = ({ match }: { match: Match }) => (
+    <div
+      onClick={() =>
+        alert(
+          `${match.teams.home.name} vs ${match.teams.away.name}\n\nMatch detail coming soon`
+        )
+      }
+      style={{
+        padding: "20px 0",
+        borderBottom: "1px solid #eee",
+        textAlign: "center",
+        cursor: "pointer",
+      }}
+    >
+      <div style={{ color: "#666", marginBottom: 10 }}>
+        {match.league.name}
+      </div>
 
-                <strong>
-                  {match.teams.home.name} vs {match.teams.away.name}
-                </strong>
+      <strong>
+        {match.teams.home.name} vs {match.teams.away.name}
+      </strong>
 
-                <div style={{ marginTop: 8, color: "#666" }}>
-                  🇬🇧 {formatDate(match.fixture.date)}
-                </div>
+      <div style={{ marginTop: 8, color: "#666" }}>
+        🇬🇧 {formatDate(match.fixture.date)}
+      </div>
 
-                <div style={{ color: "#666" }}>
-                  🌍 {formatLocalTime(match.fixture.date)}
-                </div>
-              </div>
+      <div style={{ color: "#666" }}>
+        🌍 {formatLocalTime(match.fixture.date)}
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <SectionTitle title="MATCHES" />
+
+      <Card>
+        <h2>Arsenal Fixtures</h2>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            margin: "20px 0",
+          }}
+        >
+          {competitions.map((competition) => (
+            <button
+              key={competition}
+              onClick={() => setSelectedCompetition(competition)}
+              style={{
+                padding: "8px 14px",
+                borderRadius: 20,
+                border:
+                  selectedCompetition === competition
+                    ? "1px solid #e30613"
+                    : "1px solid #ddd",
+                background:
+                  selectedCompetition === competition
+                    ? "#e30613"
+                    : "white",
+                color:
+                  selectedCompetition === competition
+                    ? "white"
+                    : "#111",
+                cursor: "pointer",
+                fontWeight: 600,
+              }}
+            >
+              {competition}
+            </button>
+          ))}
+        </div>
+
+        {loading && <p>Loading matches...</p>}
+
+        {error && (
+          <p style={{ color: "red" }}>
+            Could not load match data: {error}
+          </p>
+        )}
+
+        {!loading && !error && (
+          <>
+            <h3 style={{ marginTop: 30 }}>Upcoming</h3>
+
+            {upcomingMatches.length === 0 && (
+              <p style={{ color: "#777" }}>
+                No upcoming matches found.
+              </p>
+            )}
+
+            {upcomingMatches.map((match) => (
+              <MatchCard key={match.fixture.id} match={match} />
             ))}
-        </Card>
-      </>
-    );
-  }
+
+            <h3 style={{ marginTop: 40 }}>Results</h3>
+
+            {completedMatches.length === 0 && (
+              <p style={{ color: "#777" }}>
+                No completed matches found.
+              </p>
+            )}
+
+            {completedMatches.map((match) => (
+              <MatchCard key={match.fixture.id} match={match} />
+            ))}
+          </>
+        )}
+      </Card>
+    </>
+  );
+}
 
   function renderNews() {
     return (
