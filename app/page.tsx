@@ -1,66 +1,302 @@
- "use client";
+"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-type Page = "home" | "matches" | "news" | "transfers" | "following";
-const news = [
-  ["Injury","Saka injury update","Official · Arsenal.com · Expected return: late September","official"],
-  ["Transfer","Arsenal interested in Player X","Tier 1 · 3 sources · 2h ago","tier1"],
-  ["Interview","Arteta speaks ahead of the weekend","Arsenal.com · 3h ago","official"],
-];
+type Match = {
+  fixture: {
+    id: number;
+    date: string;
+    status: {
+      short: string;
+      long: string;
+    };
+  };
+  league: {
+    name: string;
+    round: string;
+  };
+  teams: {
+    home: {
+      name: string;
+      logo: string;
+    };
+    away: {
+      name: string;
+      logo: string;
+    };
+  };
+};
 
 export default function Home() {
-  const [page,setPage] = useState<Page>("home");
-  const [settings,setSettings] = useState(false);
-  const [language,setLanguage] = useState("English");
-  const [timezone,setTimezone] = useState("Auto-detect");
+  const [match, setMatch] = useState<Match | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const nav = [
-    ["home","Home"],["matches","Matches"],["news","News"],["transfers","Transfers"],["following","Following"]
-  ] as const;
+  useEffect(() => {
+    async function loadMatch() {
+      try {
+        const response = await fetch("/api/matches");
 
-  return <div className="app">
-    <header className="top"><div className="brand">🔴 GUNNER HUB</div><button className="settingsBtn" onClick={()=>setSettings(true)}>⚙️ Settings</button></header>
-    <nav>{nav.map(([id,label])=><button key={id} className={page===id?"active":""} onClick={()=>setPage(id)}>{label}</button>)}</nav>
-    <main>
-      <div className="breaking">🔴 <b>BREAKING</b> · Arsenal confirm latest injury update on Bukayo Saka <span>· Official · 8 min ago</span></div>
-      {page==="home" && <HomePage setPage={setPage}/>}
-      {page==="matches" && <MatchesPage/>}
-      {page==="news" && <NewsPage/>}
-      {page==="transfers" && <TransfersPage/>}
-      {page==="following" && <FollowingPage/>}
+        if (!response.ok) {
+          throw new Error("Failed to load match");
+        }
+
+        const data = await response.json();
+
+        if (!data.response || data.response.length === 0) {
+          throw new Error("No upcoming Arsenal match found");
+        }
+
+        setMatch(data.response[0]);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Something went wrong"
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadMatch();
+  }, []);
+
+  const formatTime = (date: string, timeZone: string) => {
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone,
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(date));
+  };
+
+  return (
+    <main
+      style={{
+        minHeight: "100vh",
+        background: "#f5f5f5",
+        color: "#111",
+        fontFamily: "Arial, sans-serif",
+      }}
+    >
+      <header
+        style={{
+          background: "#d71920",
+          color: "white",
+          padding: "18px 24px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <strong style={{ fontSize: "22px" }}>🔴 GOONER HUB</strong>
+        <button
+          style={{
+            background: "transparent",
+            border: "none",
+            color: "white",
+            fontSize: "20px",
+            cursor: "pointer",
+          }}
+        >
+          ⚙️
+        </button>
+      </header>
+
+      <nav
+        style={{
+          background: "white",
+          display: "flex",
+          gap: "24px",
+          padding: "14px 24px",
+          borderBottom: "1px solid #ddd",
+          fontWeight: "600",
+        }}
+      >
+        <span>Home</span>
+        <span>Matches</span>
+        <span>News</span>
+        <span>Following</span>
+      </nav>
+
+      <div
+        style={{
+          maxWidth: "900px",
+          margin: "0 auto",
+          padding: "24px 16px 60px",
+        }}
+      >
+        <div
+          style={{
+            background: "#111",
+            color: "white",
+            padding: "12px 16px",
+            borderRadius: "8px",
+            marginBottom: "20px",
+            fontWeight: "600",
+          }}
+        >
+          🔴 BREAKING · Gooner Hub is now connected to live football data
+        </div>
+
+        <section
+          style={{
+            background: "white",
+            borderRadius: "12px",
+            padding: "24px",
+            marginBottom: "20px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "13px",
+              color: "#777",
+              marginBottom: "8px",
+              textTransform: "uppercase",
+              fontWeight: "700",
+            }}
+          >
+            Next Match
+          </div>
+
+          {loading && (
+            <div style={{ padding: "30px 0", fontSize: "18px" }}>
+              Loading Arsenal&apos;s next match...
+            </div>
+          )}
+
+          {error && (
+            <div style={{ color: "#c00", padding: "20px 0" }}>
+              Could not load match data: {error}
+            </div>
+          )}
+
+          {match && (
+            <>
+              <div
+                style={{
+                  textAlign: "center",
+                  color: "#666",
+                  marginBottom: "20px",
+                }}
+              >
+                {match.league.name}
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  gap: "35px",
+                  textAlign: "center",
+                }}
+              >
+                <div style={{ width: "150px" }}>
+                  <img
+                    src={match.teams.home.logo}
+                    alt={match.teams.home.name}
+                    width="70"
+                    height="70"
+                  />
+                  <div
+                    style={{
+                      marginTop: "10px",
+                      fontWeight: "700",
+                      fontSize: "18px",
+                    }}
+                  >
+                    {match.teams.home.name}
+                  </div>
+                </div>
+
+                <div style={{ fontSize: "24px", fontWeight: "700" }}>
+                  VS
+                </div>
+
+                <div style={{ width: "150px" }}>
+                  <img
+                    src={match.teams.away.logo}
+                    alt={match.teams.away.name}
+                    width="70"
+                    height="70"
+                  />
+                  <div
+                    style={{
+                      marginTop: "10px",
+                      fontWeight: "700",
+                      fontSize: "18px",
+                    }}
+                  >
+                    {match.teams.away.name}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  marginTop: "28px",
+                  paddingTop: "20px",
+                  borderTop: "1px solid #eee",
+                  textAlign: "center",
+                }}
+              >
+                <div style={{ fontWeight: "700", fontSize: "17px" }}>
+                  🇬🇧 London time
+                </div>
+
+                <div style={{ marginTop: "6px", color: "#555" }}>
+                  {formatTime(match.fixture.date, "Europe/London")}
+                </div>
+
+                <div
+                  style={{
+                    marginTop: "18px",
+                    fontWeight: "700",
+                    fontSize: "17px",
+                  }}
+                >
+                  🌍 Your local time
+                </div>
+
+                <div style={{ marginTop: "6px", color: "#555" }}>
+                  {formatTime(
+                    match.fixture.date,
+                    Intl.DateTimeFormat().resolvedOptions().timeZone
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </section>
+
+        <section
+          style={{
+            background: "white",
+            borderRadius: "12px",
+            padding: "24px",
+            marginBottom: "20px",
+          }}
+        >
+          <h2 style={{ marginTop: 0 }}>Latest News</h2>
+
+          <div style={{ padding: "14px 0", borderBottom: "1px solid #eee" }}>
+            <strong>Match data connected</strong>
+            <div style={{ color: "#777", marginTop: "5px" }}>
+              Live Arsenal fixtures are now being provided by API-Football.
+            </div>
+          </div>
+
+          <div style={{ padding: "14px 0" }}>
+            <strong>More Arsenal news coming soon</strong>
+            <div style={{ color: "#777", marginTop: "5px" }}>
+              News sources will be connected next.
+            </div>
+          </div>
+        </section>
+      </div>
     </main>
-    {settings && <div className="modal"><div className="modalCard">
-      <h2>⚙️ Preferences</h2>
-      <label>LANGUAGE</label><div className="choices">{["English","한국어","日本語","Español"].map(x=><button className={language===x?"selected":""} onClick={()=>setLanguage(x)} key={x}>{x}</button>)}</div>
-      <label>TIME ZONE</label><div className="choices">{["Auto-detect","🇬🇧 London","🇰🇷 Seoul","🇯🇵 Tokyo","🇺🇸 New York"].map(x=><button className={timezone===x?"selected":""} onClick={()=>setTimezone(x)} key={x}>{x}</button>)}</div>
-      <p className="muted">Matches will always show London time and your selected local time.</p>
-      <button className="save" onClick={()=>setSettings(false)}>Save</button>
-    </div></div>}
-  </div>
+  );
 }
-
-function HomePage({setPage}:{setPage:(p:Page)=>void}) { return <div className="grid">
-  <section>
-    <Card title="NEXT MATCH"><div className="match"><small>Premier League · Sat, 20 Sep</small><h2>Arsenal <em>vs</em> Chelsea</h2><p>🇬🇧 London <b>20:00</b> · 🌍 Your time <b>04:00 (+1)</b></p><button onClick={()=>setPage("matches")}>Match details</button></div></Card>
-    <Card title="LATEST RESULT"><div className="match"><h2>Arsenal 3 — 1 Chelsea</h2><small>Full time · Sat, 13 Sep</small></div></Card>
-    <Card title="🔄 TRANSFER WATCH"><Story title="Player X → Arsenal?" tags={["Tier 1 · Romano","Tier 1 · Sky"]} note="2 reliable sources reporting"/><Story title="Player Y linked with Arsenal" tags={["Unverified"]} note="No reliable source confirmation"/></Card>
-  </section>
-  <section>
-    <Card title="📰 IMPORTANT UPDATES"><Story title="Saka injury update" tags={["Official"]} note="Arsenal.com · 8 min ago · Expected return: late September"/><Story title="Arsenal prepare for next league match" tags={["Tier 1"]} note="BBC Sport · 1h ago"/></Card>
-    <Card title="🎥 LATEST HIGHLIGHTS"><div className="video">▶</div><p className="muted">Official Arsenal · YouTube</p></Card>
-    <Card title="⭐ FOLLOWING"><p className="muted">Saka · Ødegaard · Transfers</p><b>5 new updates</b></Card>
-  </section>
-</div>}
-
-function MatchesPage(){return <Card title="⚽ MATCHES"><div className="choices"><button>All</button><button>Premier League</button><button>Champions League</button><button>FA Cup</button><button>EFL Cup</button></div><MatchRow date="Sat, 20 Sep" title="Arsenal vs Chelsea" time="20:00" /><MatchRow date="Sat, 27 Sep" title="Arsenal vs Liverpool" time="17:30" /><MatchRow date="EFL Cup · Wed, 24 Sep" title="Arsenal vs Example FC" time="19:45" /><h3>Latest result</h3><MatchRow date="" title="Arsenal 3 — 1 Chelsea" time="Full time"/></Card>}
-
-function NewsPage(){return <Card title="📰 NEWS"><div className="choices">{["All","Match","Transfer","Interview","Injury","Club","Other"].map(x=><button key={x}>{x}</button>)}</div>{news.map(n=><Story key={n[1]} title={n[1]} tags={[n[0],n[3]==="tier1"?"Tier 1":"Official"]} note={n[2]}/>)}</Card>}
-
-function TransfersPage(){return <Card title="🔄 TRANSFER WATCH"><p className="muted">Stories are grouped by topic and show source reliability.</p><Story title="Player X → Arsenal?" tags={["Tier 1 · Romano","Tier 1 · Sky"]} note="2 reliable sources · No official confirmation"/><Story title="Player Y linked with Arsenal" tags={["Unverified"]} note="Single unverified source · Treat with caution"/></Card>}
-
-function FollowingPage(){return <Card title="⭐ FOLLOWING"><p>Follow players, topics and keywords.</p><div className="choices">{["Saka","Ødegaard","Transfers","Injuries","Arteta"].map(x=><button key={x}>{x}</button>)}</div><h3>Your updates</h3><Story title="Saka injury update" tags={["Official"]} note="8 min ago"/><Story title="Arsenal transfer update" tags={["Tier 1"]} note="2h ago"/></Card>}
-
-function Card({title,children}:{title:string,children:React.ReactNode}){return <div className="card"><div className="label">{title}</div>{children}</div>}
-function Story({title,tags,note}:{title:string,tags:string[],note:string}){return <div className="story"><div><div className="title">{title}</div>{tags.map(t=><span className={t.toLowerCase().includes("unverified")?"tag warn":t.toLowerCase().includes("tier")?"tag tier":"tag"} key={t}>{t}</span>)}<div className="muted">{note}</div></div></div>}
-function MatchRow({date,title,time}:{date:string,title:string,time:string}){return <div className="row"><div><b>{date}</b><div>{title}</div><div className="muted">🇬🇧 London {time} · 🌍 Your time {time==="Full time"?"—":"04:00 (+1)"}</div></div><button>Match</button></div>}
