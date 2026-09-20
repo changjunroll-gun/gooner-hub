@@ -62,26 +62,28 @@ export default function Home() {
 
   const nextMatch = matches[0];
 
-  function formatDate(dateString: string) {
-    return new Intl.DateTimeFormat("en-GB", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Europe/London",
-    }).format(new Date(dateString));
-  }
+ function formatDate(dateString: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Europe/London",
+  }).format(new Date(dateString));
+}
 
-  function formatLocalTime(dateString: string) {
-    return new Intl.DateTimeFormat(undefined, {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(new Date(dateString));
-  }
+function formatLocalTime(dateString: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(dateString));
+}
 
   function renderNextMatch() {
     if (loading) {
