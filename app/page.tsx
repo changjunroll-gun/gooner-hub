@@ -13,7 +13,7 @@ type Match = {
   };
   league: {
     name: string;
-    round: string;
+    round?: string;
   };
   teams: {
     home: {
@@ -27,78 +27,297 @@ type Match = {
   };
 };
 
+type Tab = "home" | "matches" | "news" | "following";
+
 export default function Home() {
-  const [match, setMatch] = useState<Match | null>(null);
+  const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState<Tab>("home");
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
-    async function loadMatch() {
+    async function loadMatches() {
       try {
         const response = await fetch("/api/matches");
 
         if (!response.ok) {
-          throw new Error("Failed to load match");
+          const data = await response.json();
+          throw new Error(data.error || "Failed to load match data");
         }
 
         const data = await response.json();
-
-        if (!data.response || data.response.length === 0) {
-          throw new Error("No upcoming Arsenal match found");
-        }
-
-        setMatch(data.response[0]);
+        setMatches(data.response || []);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Something went wrong"
+          err instanceof Error ? err.message : "Failed to load match data"
         );
       } finally {
         setLoading(false);
       }
     }
 
-    loadMatch();
+    loadMatches();
   }, []);
 
-  const formatTime = (date: string, timeZone: string) => {
+  const nextMatch = matches[0];
+
+  function formatDate(dateString: string) {
     return new Intl.DateTimeFormat("en-GB", {
-      timeZone,
       weekday: "short",
       day: "numeric",
       month: "short",
       hour: "2-digit",
       minute: "2-digit",
-    }).format(new Date(date));
-  };
+      timeZone: "Europe/London",
+    }).format(new Date(dateString));
+  }
+
+  function formatLocalTime(dateString: string) {
+    return new Intl.DateTimeFormat(undefined, {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(dateString));
+  }
+
+  function renderNextMatch() {
+    if (loading) {
+      return <p>Loading Arsenal's next match...</p>;
+    }
+
+    if (error) {
+      return <p style={{ color: "red" }}>Could not load match data: {error}</p>;
+    }
+
+    if (!nextMatch) {
+      return <p>No upcoming Arsenal match found.</p>;
+    }
+
+    return (
+      <div>
+        <div style={{ textAlign: "center", color: "#666", marginBottom: 20 }}>
+          {nextMatch.league.name}
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 60,
+          }}
+        >
+          <Team
+            name={nextMatch.teams.home.name}
+            logo={nextMatch.teams.home.logo}
+          />
+
+          <strong style={{ fontSize: 28 }}>VS</strong>
+
+          <Team
+            name={nextMatch.teams.away.name}
+            logo={nextMatch.teams.away.logo}
+          />
+        </div>
+
+        <div
+          style={{
+            marginTop: 30,
+            paddingTop: 20,
+            borderTop: "1px solid #eee",
+            textAlign: "center",
+          }}
+        >
+          <strong>🇬🇧 London time</strong>
+          <div style={{ marginTop: 8, color: "#666" }}>
+            {formatDate(nextMatch.fixture.date)}
+          </div>
+
+          <div style={{ marginTop: 20 }}>
+            <strong>🌍 Your local time</strong>
+            <div style={{ marginTop: 8, color: "#666" }}>
+              {formatLocalTime(nextMatch.fixture.date)}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderHome() {
+    return (
+      <>
+        <SectionTitle title="NEXT MATCH" />
+        <Card>{renderNextMatch()}</Card>
+
+        <Card>
+          <h2>Latest News</h2>
+
+          <NewsItem
+            title="Arsenal match data connected"
+            description="Live Arsenal fixtures are now being provided by football-data.org."
+          />
+
+          <NewsItem
+            title="More Arsenal news coming soon"
+            description="News sources will be connected next."
+          />
+        </Card>
+      </>
+    );
+  }
+
+  function renderMatches() {
+    return (
+      <>
+        <SectionTitle title="MATCHES" />
+
+        <Card>
+          <h2>Arsenal Fixtures</h2>
+
+          {loading && <p>Loading matches...</p>}
+
+          {error && (
+            <p style={{ color: "red" }}>
+              Could not load match data: {error}
+            </p>
+          )}
+
+          {!loading && !error && matches.length === 0 && (
+            <p>No upcoming matches found.</p>
+          )}
+
+          {!loading &&
+            !error &&
+            matches.map((match) => (
+              <div
+                key={match.fixture.id}
+                style={{
+                  padding: "20px 0",
+                  borderBottom: "1px solid #eee",
+                  textAlign: "center",
+                }}
+              >
+                <div style={{ color: "#666", marginBottom: 10 }}>
+                  {match.league.name}
+                </div>
+
+                <strong>
+                  {match.teams.home.name} vs {match.teams.away.name}
+                </strong>
+
+                <div style={{ marginTop: 8, color: "#666" }}>
+                  🇬🇧 {formatDate(match.fixture.date)}
+                </div>
+
+                <div style={{ color: "#666" }}>
+                  🌍 {formatLocalTime(match.fixture.date)}
+                </div>
+              </div>
+            ))}
+        </Card>
+      </>
+    );
+  }
+
+  function renderNews() {
+    return (
+      <>
+        <SectionTitle title="NEWS" />
+
+        <Card>
+          <h2>Latest Arsenal News</h2>
+
+          <NewsItem
+            title="News centre coming soon"
+            description="Arsenal news from approved sources will appear here."
+          />
+
+          <NewsItem
+            title="Transfer Watch"
+            description="Transfer stories will be grouped and shown with source reliability."
+          />
+
+          <NewsItem
+            title="Injury Updates"
+            description="Player injury updates will appear here."
+          />
+        </Card>
+      </>
+    );
+  }
+
+  function renderFollowing() {
+    return (
+      <>
+        <SectionTitle title="FOLLOWING" />
+
+        <Card>
+          <h2>Your Following</h2>
+
+          <p style={{ color: "#666" }}>
+            Follow players and topics to see personalised Arsenal updates here.
+          </p>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              marginTop: 20,
+            }}
+          >
+            {["Saka", "Ødegaard", "Transfers", "Injuries", "Arteta"].map(
+              (item) => (
+                <button
+                  key={item}
+                  style={tagStyle}
+                  onClick={() => alert(`${item} following coming soon`)}
+                >
+                  + {item}
+                </button>
+              )
+            )}
+          </div>
+        </Card>
+      </>
+    );
+  }
+
+  function renderContent() {
+    if (activeTab === "matches") return renderMatches();
+    if (activeTab === "news") return renderNews();
+    if (activeTab === "following") return renderFollowing();
+
+    return renderHome();
+  }
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#f5f5f5",
-        color: "#111",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
+    <main style={{ minHeight: "100vh", background: "#f5f5f5" }}>
       <header
         style={{
-          background: "#d71920",
+          background: "#e30613",
           color: "white",
-          padding: "18px 24px",
+          padding: "28px 48px",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
         }}
       >
-        <strong style={{ fontSize: "22px" }}>🔴 GOONER HUB</strong>
+        <h1 style={{ margin: 0, fontSize: 26 }}>🔴 GOONER HUB</h1>
+
         <button
+          onClick={() => setSettingsOpen(!settingsOpen)}
           style={{
             background: "transparent",
             border: "none",
-            color: "white",
-            fontSize: "20px",
+            fontSize: 24,
             cursor: "pointer",
           }}
+          aria-label="Settings"
         >
           ⚙️
         </button>
@@ -107,196 +326,171 @@ export default function Home() {
       <nav
         style={{
           background: "white",
-          display: "flex",
-          gap: "24px",
-          padding: "14px 24px",
+          padding: "0 32px",
           borderBottom: "1px solid #ddd",
-          fontWeight: "600",
+          display: "flex",
+          gap: 30,
         }}
       >
-        <span>Home</span>
-        <span>Matches</span>
-        <span>News</span>
-        <span>Following</span>
+        {(
+          [
+            ["home", "Home"],
+            ["matches", "Matches"],
+            ["news", "News"],
+            ["following", "Following"],
+          ] as [Tab, string][]
+        ).map(([tab, label]) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              background: "none",
+              border: "none",
+              padding: "18px 0",
+              fontSize: 16,
+              fontWeight: activeTab === tab ? 700 : 600,
+              cursor: "pointer",
+              color: activeTab === tab ? "#e30613" : "#111",
+              borderBottom:
+                activeTab === tab
+                  ? "3px solid #e30613"
+                  : "3px solid transparent",
+            }}
+          >
+            {label}
+          </button>
+        ))}
       </nav>
 
-      <div
-        style={{
-          maxWidth: "900px",
-          margin: "0 auto",
-          padding: "24px 16px 60px",
-        }}
-      >
+      {settingsOpen && (
         <div
           style={{
-            background: "#111",
-            color: "white",
-            padding: "12px 16px",
-            borderRadius: "8px",
-            marginBottom: "20px",
-            fontWeight: "600",
+            background: "white",
+            borderBottom: "1px solid #ddd",
+            padding: 24,
+            textAlign: "right",
           }}
         >
-          🔴 BREAKING · Gooner Hub is now connected to live football data
+          <strong>Settings</strong>
+          <p style={{ marginBottom: 0, color: "#666" }}>
+            Language and timezone settings coming soon.
+          </p>
         </div>
+      )}
 
-        <section
+      {activeTab === "home" && (
+        <div
           style={{
-            background: "white",
-            borderRadius: "12px",
-            padding: "24px",
-            marginBottom: "20px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+            maxWidth: 900,
+            margin: "24px auto",
+            padding: "0 20px",
           }}
         >
           <div
             style={{
-              fontSize: "13px",
-              color: "#777",
-              marginBottom: "8px",
-              textTransform: "uppercase",
-              fontWeight: "700",
+              background: "#111",
+              color: "white",
+              padding: "14px 18px",
+              borderRadius: 10,
+              marginBottom: 22,
+              fontWeight: 700,
             }}
           >
-            Next Match
+            🔴 GOONER HUB · Live Arsenal data connected
           </div>
 
-          {loading && (
-            <div style={{ padding: "30px 0", fontSize: "18px" }}>
-              Loading Arsenal&apos;s next match...
-            </div>
-          )}
+          {renderContent()}
+        </div>
+      )}
 
-          {error && (
-            <div style={{ color: "#c00", padding: "20px 0" }}>
-              Could not load match data: {error}
-            </div>
-          )}
-
-          {match && (
-            <>
-              <div
-                style={{
-                  textAlign: "center",
-                  color: "#666",
-                  marginBottom: "20px",
-                }}
-              >
-                {match.league.name}
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  gap: "35px",
-                  textAlign: "center",
-                }}
-              >
-                <div style={{ width: "150px" }}>
-                  <img
-                    src={match.teams.home.logo}
-                    alt={match.teams.home.name}
-                    width="70"
-                    height="70"
-                  />
-                  <div
-                    style={{
-                      marginTop: "10px",
-                      fontWeight: "700",
-                      fontSize: "18px",
-                    }}
-                  >
-                    {match.teams.home.name}
-                  </div>
-                </div>
-
-                <div style={{ fontSize: "24px", fontWeight: "700" }}>
-                  VS
-                </div>
-
-                <div style={{ width: "150px" }}>
-                  <img
-                    src={match.teams.away.logo}
-                    alt={match.teams.away.name}
-                    width="70"
-                    height="70"
-                  />
-                  <div
-                    style={{
-                      marginTop: "10px",
-                      fontWeight: "700",
-                      fontSize: "18px",
-                    }}
-                  >
-                    {match.teams.away.name}
-                  </div>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  marginTop: "28px",
-                  paddingTop: "20px",
-                  borderTop: "1px solid #eee",
-                  textAlign: "center",
-                }}
-              >
-                <div style={{ fontWeight: "700", fontSize: "17px" }}>
-                  🇬🇧 London time
-                </div>
-
-                <div style={{ marginTop: "6px", color: "#555" }}>
-                  {formatTime(match.fixture.date, "Europe/London")}
-                </div>
-
-                <div
-                  style={{
-                    marginTop: "18px",
-                    fontWeight: "700",
-                    fontSize: "17px",
-                  }}
-                >
-                  🌍 Your local time
-                </div>
-
-                <div style={{ marginTop: "6px", color: "#555" }}>
-                  {formatTime(
-                    match.fixture.date,
-                    Intl.DateTimeFormat().resolvedOptions().timeZone
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-        </section>
-
-        <section
+      {activeTab !== "home" && (
+        <div
           style={{
-            background: "white",
-            borderRadius: "12px",
-            padding: "24px",
-            marginBottom: "20px",
+            maxWidth: 900,
+            margin: "24px auto",
+            padding: "0 20px",
           }}
         >
-          <h2 style={{ marginTop: 0 }}>Latest News</h2>
-
-          <div style={{ padding: "14px 0", borderBottom: "1px solid #eee" }}>
-            <strong>Match data connected</strong>
-            <div style={{ color: "#777", marginTop: "5px" }}>
-              Live Arsenal fixtures are now being provided by API-Football.
-            </div>
-          </div>
-
-          <div style={{ padding: "14px 0" }}>
-            <strong>More Arsenal news coming soon</strong>
-            <div style={{ color: "#777", marginTop: "5px" }}>
-              News sources will be connected next.
-            </div>
-          </div>
-        </section>
-      </div>
+          {renderContent()}
+        </div>
+      )}
     </main>
   );
 }
+
+function Team({ name, logo }: { name: string; logo: string }) {
+  return (
+    <div style={{ textAlign: "center", width: 150 }}>
+      <img
+        src={logo}
+        alt={name}
+        style={{
+          width: 70,
+          height: 70,
+          objectFit: "contain",
+        }}
+      />
+      <div style={{ marginTop: 10, fontWeight: 700 }}>{name}</div>
+    </div>
+  );
+}
+
+function SectionTitle({ title }: { title: string }) {
+  return (
+    <div
+      style={{
+        fontSize: 13,
+        fontWeight: 700,
+        color: "#777",
+        marginBottom: 10,
+        letterSpacing: 0.5,
+      }}
+    >
+      {title}
+    </div>
+  );
+}
+
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <section
+      style={{
+        background: "white",
+        borderRadius: 14,
+        padding: 26,
+        marginBottom: 22,
+        boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+      }}
+    >
+      {children}
+    </section>
+  );
+}
+
+function NewsItem({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div
+      style={{
+        padding: "16px 0",
+        borderBottom: "1px solid #eee",
+      }}
+    >
+      <strong>{title}</strong>
+      <div style={{ color: "#777", marginTop: 5 }}>{description}</div>
+    </div>
+  );
+}
+
+const tagStyle = {
+  border: "1px solid #ddd",
+  background: "white",
+  borderRadius: 20,
+  padding: "8px 14px",
+  cursor: "pointer",
+};
